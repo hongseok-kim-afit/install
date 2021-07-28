@@ -118,7 +118,7 @@ sudo sh -c 'echo "deb http://packages.ros.org/ros2/ubuntu bionic main" > /etc/ap
 
 # Realsense
 echo 'deb http://realsense-hw-public.s3.amazonaws.com/Debian/apt-repo bionic main' | sudo tee /etc/apt/sources.list.d/realsense-public.list
-sudo apt-key adv --keyserver keys.gnupg.net --recv-key 6F3EFCDE
+sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com --recv-key 6F3EFCDE
 
 #
 # Try Apt update up to 5 times if fails
