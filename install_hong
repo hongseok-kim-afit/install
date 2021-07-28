@@ -1,0 +1,156 @@
+#!/bin/bash
+
+exit_status() {
+
+    if [ $? -eq 0 ]
+    then
+            echo "==========="
+            echo "Success"
+            echo "==========="
+
+    else
+            echo "==========="
+            echo "[ERROR] Process failed!"
+            echo "==========="
+
+            read -p "Last command exit status - error. Exit installation? (yes/no)" answer
+
+        if [ "$answer" == "yes" ]
+        then
+            exit
+        fi
+    fi
+}
+
+set_default_bash_rc() {
+    sudo cp /etc/skel/.bashrc ~/
+}
+
+rosdep_init() {
+
+    echo "Rosdep initialization"
+    sudo rm /etc/ros/rosdep/sources.list.d/20-default.list || true
+    sudo rosdep init
+    exit_status
+
+    echo "Rosdep update"
+    rosdep update
+    exit_status
+
+    echo "ROS installation complete"
+}
+
+hamster_ws_setup() {
+    pushd /home/devkit
+
+    wget https://cloud.cogni.io/index.php/s/9AbMKT1vwzNNHRH/download -O hamster_ws.tar.xz
+    tar xf hamster_ws.tar.xz
+    cp /home/devkit/hamster_ws/src/hamster_launch/config/hamster.config /home/devkit/
+    rm -f hamster_ws.tar.xz
+
+    popd
+}
+
+hamster2_ws_setup() {
+    pushd /home/devkit
+
+    wget https://cloud.cogni.io/index.php/s/DTehZ9U3VB9fPqd/download -O hamster2_ws.tar.xz
+    tar xf hamster2_ws.tar.xz
+    rm -f hamster2_ws.tar.xz
+
+    popd
+}
+
+ros_sources_init() {
+    echo "alias ros_prokit='source /opt/ros/melodic/setup.bash && source ~/hamster.config'" >> ~/.bashrc
+    echo "alias ros2_prokit='source /opt/ros/dashing/setup.bash && source ~/hamster2_ws/install/local_setup.bash'" >> ~/.bashrc
+}
+
+ros_openvino_init() {
+
+    #
+    # Detection MobileNet SSD deepnet
+    #
+    pushd /home/devkit
+    wget https://cloud.cogni.io/index.php/s/26jkyukBQSCTnYs/download -O ssdlite_net.tar.xz
+    tar xJf ssdlite_net.tar.xz
+    rm -f ssdlite_net.tar.xz
+    popd
+
+    #
+    #
+    #
+    # pushd /home/devkit/hamster_ws/src/ros_openvino_toolkit/script/
+    # bash environment_setup.sh
+
+    #
+    # DLDT
+    #
+
+
+    wget https://cloud.cogni.io/index.php/s/ne5rEyD8eGedHSJ/download -O /home/devkit/dldt.tar.xz
+    tar xJf /home/devkit/dldt.tar.xz -C /home/devkit
+    rm -f /home/devkit/dldt.tar.xz
+    sudo mkdir /opt/openvino_toolkit -p
+    sudo ln -s /home/devkit/dldt /opt/openvino_toolkit/dldt
+
+    echo "source /opt/intel/openvino/bin/setupvars.sh" >> ~/.bashrc
+    echo "export InferenceEngine_DIR=/opt/openvino_toolkit/dldt/inference-engine/build/" >> ~/.bashrc
+    echo "export CPU_EXTENSION_LIB=/opt/openvino_toolkit/dldt/inference-engine/bin/intel64/Release/lib/libcpu_extension.so" >> ~/.bashrc
+    echo "export GFLAGS_LIB=/opt/openvino_toolkit/dldt/inference-engine/bin/intel64/Release/lib/libgflags_nothreads.a" >> ~/.bashrc
+}
+
+set -e
+sudo systemctl stop unattended-upgrades.service
+#
+# Add all apt repositories
+#
+
+# ROS1
+sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu bionic main" > /etc/apt/sources.list.d/ros-latest.list'
+sudo apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
+
+# ROS2
+curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
+sudo sh -c 'echo "deb http://packages.ros.org/ros2/ubuntu bionic main" > /etc/apt/sources.list.d/ros2-latest.list'
+
+# Realsense
+echo 'deb http://realsense-hw-public.s3.amazonaws.com/Debian/apt-repo bionic main' | sudo tee /etc/apt/sources.list.d/realsense-public.list
+sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com --recv-key 6F3EFCDE
+
+#
+# Try Apt update up to 5 times if fails
+#
+for i in 1 2 3 4 5; do sudo apt update && break || sleep 3; done
+
+#
+# Install apt packages in one command
+#
+sudo apt install -y build-essential cmake curl wget libssl-dev ca-certificates git libboost-regex-dev gcc-multilib \
+        g++-multilib libgtk2.0-dev pkg-config unzip automake libtool autoconf libcairo2-dev libpango1.0-dev \
+        libglib2.0-dev libgtk2.0-dev libswscale-dev libavcodec-dev libavformat-dev \
+        libgstreamer1.0-0 gstreamer1.0-plugins-base libusb-1.0-0-dev libopenblas-dev \
+        libpng-dev libopencv-dev librealsense2-dkms librealsense2-utils librealsense2-dev librealsense2-dbg \
+        ros-melodic-desktop-full python-rosinstall python-rosinstall-generator python-wstool build-essential \
+        ros-melodic-ackermann-msgs ros-melodic-geodesy ros-melodic-serial ros-melodic-realsense2-camera \
+        ros-melodic-master-discovery-fkie ros-melodic-master-sync-fkie ros-melodic-imu-filter-madgwick ros-melodic-pointcloud-to-laserscan \
+        ros-melodic-gmapping ros-melodic-costmap-2d python-rosdep \
+        curl gnupg2 lsb-release ros-dashing-desktop python3-colcon-common-extensions ros-dashing-realsense-ros2-camera
+
+
+
+set_default_bash_rc
+
+rosdep_init
+
+sudo usermod -a -G dialout devkit
+
+hamster_ws_setup
+
+hamster2_ws_setup
+
+ros_sources_init
+
+ros_openvino_init
+                                                                                                                                                                                          156,7         Bot
+                                     
