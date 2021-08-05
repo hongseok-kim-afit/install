@@ -1,0 +1,53 @@
+-210802 Reinstall ununtu 18.04.05
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	user@devkit:~$ uname -a
+	Linux devkit 5.4.0-42-generic #46~18.04.1-Ubuntu SMP Fri Jul 10 07:21:24 UTC 2020 x86_64 x86_64 x86_64 GNU/Linux
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	sudo wget https://cloud.cogni.io/index.php/s/5hoM64ChZdjX5mV/download -O - | bash 
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	%%%not works
+	- https://wiki.cogni.io/Category:HamsterProKit
+
+
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	sudo apt update
+	%%% done
+	
+	- ros install
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	- http://wiki.ros.org/melodic/Installation/Ubuntu
+	%%% done
+	
+	- hamster simulation install
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	- https://wiki.cogni.io/Simulation
+	%%%% done
+
+	- git install
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	sudo apt install git
+	%%%% done
+	
+	-pip install
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	sudo apt install python-pip
+	%%%% done
+
+	- catkin-package 
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+	pip install catkin_pkg
+	%%%%done
+
+	- hamsterServer
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+
+	https://wiki.cogni.io/index.php/HamsterServer
+	%%%% last command does not wrok
+
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	sudo apt-get install ros-melodic-random-numbers
+	- fixes cmake error with random numbers?
+	
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	-rviz not working
+	wiki.ros.org/rviz/UserGuide
