@@ -1,0 +1,25 @@
+Product support support@cogniteam.com
+
+
+3. Configure ROS IP
+
+Configure IP for ROS applications:
+
+pico hamster.config in home directory
+
+Edit row with your board IP:
+
+export HAMSTER_IP=your_IP
+4. Launch examples
+
+NOTE: examples work properly just with full-connected kit, be sure you did step 1 from this page.
+
+To run examples in ROS run command:
+
+ros_prokit
+
+ROS_EXAMPLES 
+
+https://aws.amazon.com/kinesis/
+
+http://wiki.ros.org/rqt
