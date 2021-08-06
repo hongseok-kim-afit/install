@@ -51,3 +51,11 @@
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	-rviz not working
 	wiki.ros.org/rviz/UserGuide
+
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	 install miniconda from internet
+	pip install pyrealsense2
+	pip install numpy
+	pip install opencv-python
+	pip install opencv-contrib-python
+	pip install matplotlib
