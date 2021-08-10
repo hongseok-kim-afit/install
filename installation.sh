@@ -43,18 +43,18 @@ rosdep_init() {
 }
 
 hamster_ws_setup() {
-    pushd /home/devkit
+    pushd /home/user
     
     wget https://cloud.cogni.io/index.php/s/9AbMKT1vwzNNHRH/download -O hamster_ws.tar.xz
     tar xf hamster_ws.tar.xz
-    cp /home/devkit/hamster_ws/src/hamster_launch/config/hamster.config /home/devkit/
+    cp /home/user/hamster_ws/src/hamster_launch/config/hamster.config /home/user/
     rm -f hamster_ws.tar.xz
 
     popd
 }
 
 hamster2_ws_setup() {
-    pushd /home/devkit
+    pushd /home/user
 
     wget https://cloud.cogni.io/index.php/s/DTehZ9U3VB9fPqd/download -O hamster2_ws.tar.xz
     tar xf hamster2_ws.tar.xz
@@ -73,7 +73,7 @@ ros_openvino_init() {
     #
     # Detection MobileNet SSD deepnet
     #
-    pushd /home/devkit
+    pushd /home/user
     wget https://cloud.cogni.io/index.php/s/26jkyukBQSCTnYs/download -O ssdlite_net.tar.xz
     tar xJf ssdlite_net.tar.xz
     rm -f ssdlite_net.tar.xz
@@ -82,7 +82,7 @@ ros_openvino_init() {
     #
     #
     #
-    # pushd /home/devkit/hamster_ws/src/ros_openvino_toolkit/script/
+    # pushd /home/user/hamster_ws/src/ros_openvino_toolkit/script/
     # bash environment_setup.sh
     
     #
@@ -90,11 +90,11 @@ ros_openvino_init() {
     #
 
 
-    wget https://cloud.cogni.io/index.php/s/ne5rEyD8eGedHSJ/download -O /home/devkit/dldt.tar.xz
-    tar xJf /home/devkit/dldt.tar.xz -C /home/devkit
-    rm -f /home/devkit/dldt.tar.xz
+    wget https://cloud.cogni.io/index.php/s/ne5rEyD8eGedHSJ/download -O /home/user/dldt.tar.xz
+    tar xJf /home/user/dldt.tar.xz -C /home/user
+    rm -f /home/user/dldt.tar.xz
     sudo mkdir /opt/openvino_toolkit -p
-    sudo ln -s /home/devkit/dldt /opt/openvino_toolkit/dldt
+    sudo ln -s /home/user/dldt /opt/openvino_toolkit/dldt
 
     echo "source /opt/intel/openvino/bin/setupvars.sh" >> ~/.bashrc
     echo "export InferenceEngine_DIR=/opt/openvino_toolkit/dldt/inference-engine/build/" >> ~/.bashrc
@@ -118,7 +118,7 @@ sudo sh -c 'echo "deb http://packages.ros.org/ros2/ubuntu bionic main" > /etc/ap
 
 # Realsense
 echo 'deb http://realsense-hw-public.s3.amazonaws.com/Debian/apt-repo bionic main' | sudo tee /etc/apt/sources.list.d/realsense-public.list
-sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com --recv-key 6F3EFCDE
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key 6F3EFCDE
 
 #
 # Try Apt update up to 5 times if fails

@@ -1,0 +1,5 @@
+##########################################3
+rosrun rviz rviz
+############################################
+
+In one terminal run "roscore" Then, in a new terminal do "rosrun rviz rviz"

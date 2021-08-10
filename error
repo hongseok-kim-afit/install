@@ -1,13 +1,20 @@
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-no-name
-sh installation.sh
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 21.08.03
 
-https://stackoverflow.com/questions/66217436/gpg-keyserver-receive-failed-no-name
-
-gpg keyserver receive failed no name
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-gazebo...
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+roslauch
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+roslaunch realsense2_camera rs_camera.launch camera:=cam_1 serial_no:=101622074821 #serial NO.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+network setting
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+https://wiki.cogni.io/index.php/ConfigNetwork
+
+
+######################################
+camera launch
+####################################
+https://github.com/IntelRealSense/realsense-ros/wiki/SLAM-with-D435i
+

@@ -1,0 +1,18 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+roslauch
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+
+
+[ WARN] [1628307958.866647471]: 
+ 06/08 23:45:58,868 WARNING [139768463492864] (messenger-libusb.cpp:42) control_transfer returned error, index: 768, error: No data available, number: 61
+ 06/08 23:45:58,918 WARNING [139768463492864] (messenger-libusb.cpp:42) control_transfer returned error, index: 768, error: No data available, number: 61
+ 06/08 23:45:58,970 WARNING [139768463492864] (messenger-libusb.cpp:42) control_transfer returned error, index: 768, error: No data available, number: 61
+ 06/08 23:45:59,122 WARNING [139768463492864] (messenger-libusb.cpp:42) control_transfer returned error, index: 768, error: No data available, number: 61
+ 06/08 23:45:59,173 WARNING [139768463492864] (messenger-libusb.cpp:42) control_transfer returned error, index: 768, error: No data available, number: 61
+ 06/08 23:45:59,224 WARNING [139768463492864] (messenger-libusb.cpp:42) control_transfer returned error, index: 768, error: No data available, number: 61
+ 06/08 23:45:59,274 WARNING [139768463492864] (messenger-libusb.cpp:42) control_transfer returned error, index: 768, error: No data available, number: 61
+ 06/08 23:45:59,325 WARNING [139768463492864] (messenger-libusb.cpp:42) control_transfer returned error, index: 768, error: No data available, number: 61
+ 06/08 23:45:59,376 WARNING [139768463492864] (messenger-libusb.cpp:42) control_transfer returned error, index: 768, error: No data available, number: 61
+^C[camera/realsense2_camera-2] killing on exit
+[camera/realsense2_camera_manager-1] killing on exit
+
