@@ -22,8 +22,6 @@ import pyrealsense2 as rs
 # get profile/device/ wheel odometry sensor by profile = cfg.resolve(pipe)
 pipe = rs.pipeline()
 cfg = rs.config()
-cfg.enable_device('119622110606') # T265 camera 119622110606
-
 profile = cfg.resolve(pipe)
 dev = profile.get_device()
 tm2 = dev.as_tm2()
@@ -44,15 +42,15 @@ if(tm2):
     wheel_odometer.load_wheel_odometery_config(chars)
 
 
-    pipe.start(cfg)
+    pipe.start()
     try:
         for _ in range(100):
             frames = pipe.wait_for_frames()
             pose = frames.get_pose_frame()
             if pose:
                 data = pose.get_pose_data()
-                #print("Frame #{}".format(pose.frame_number))
-                #print("Position: {}".format(data.translation))
+                print("Frame #{}".format(pose.frame_number))
+                print("Position: {}".format(data.translation))
 
                 # provide wheel odometry as vecocity measurement
                 wo_sensor_id = 0  # indexed from 0, match to order in calibration file
@@ -60,6 +58,5 @@ if(tm2):
                 v = rs.vector()
                 v.x = 0.1  # m/s
                 wheel_odometer.send_wheel_odometry(wo_sensor_id, frame_num, v)
-    
     finally:
         pipe.stop()

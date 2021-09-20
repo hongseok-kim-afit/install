@@ -98,7 +98,7 @@ arucoParams = cv2.aruco.DetectorParameters_create()
 #setup depth camera
 pipe = rs.pipeline()
 config = rs.config()
-config.enable_device('101622074821') #D455 serial number 035722250373
+config.enable_device('040322073813') #D455 serial number 035722250373 #hamster D435 101622074821
 config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
 config.enable_stream(rs.stream.color, 1920, 1080, rs.format.bgr8, 30)
 profile = pipe.start(config)
@@ -111,13 +111,13 @@ fontScale              = 1
 fontColor              = (255,255,255)
 lineType               = 2
 
-'''
+
 #setup tracking camera 
 pipe2 = rs.pipeline()
 config2 = rs.config()
-config2.enable_device('119622110606') # D435i FPV camera 040322073813
-config2.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
-config2.enable_stream(rs.stream.color, 1920, 1080, rs.format.bgr8, 30)
+config2.enable_device('119622110606') # T265 camera 119622110606
+#config2.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
+#config2.enable_stream(rs.stream.color, 1920, 1080, rs.format.bgr8, 30)
 profile2 = pipe2.start(config2)
 frameset2 = pipe2.wait_for_frames()
 color_frame2 = frameset2.get_color_frame()
@@ -127,13 +127,13 @@ bottomLeftCornerOfText = (10,500)
 fontScale              = 1
 fontColor              = (255,255,255)
 lineType               = 2
-'''
 
-'''
+
+
 #connecting to autopilot
 master = mavutil.mavlink_connection("/dev/ttyUSB0", baud=57600) # baud?
 master.wait_heartbeat()
-'''
+
 
 '''
 #camera gimbal orientation function
@@ -162,7 +162,7 @@ print('connected to sitl')
 #initializing mode variable as GUIDED. Needed to not throw aruco detection exception
 mode = 'GUIDED'  
 
-'''
+
 #change mode command 
 #Note: as this may may lock out RC mode change, it will only be used for ground testing
 mode_id = master.mode_mapping()[mode]
@@ -170,9 +170,9 @@ master.mav.set_mode_send(
     master.target_system,
     mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
     mode_id)
-'''
 
-'''
+
+
 #arm throttle command (not needed if already flying)
 master.mav.command_long_send(
     master.target_system,
@@ -180,7 +180,7 @@ master.mav.command_long_send(
     mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
     0,
     1, 0, 0, 0, 0, 0, 0)
-'''
+
 
 #starting outer while loop
 while True:
@@ -431,7 +431,7 @@ while True:
     cv2.namedWindow('ArUCo', cv2.WINDOW_NORMAL)
     cv2.imshow('ArUCo',aruco_res)
     cv2.namedWindow('FPV', cv2.WINDOW_NORMAL)
-    cv2.imshow('FPV',aruco_res2)
+#    cv2.imshow('FPV',aruco_res2)
     
     ii = ii+1
     if ii < 20000:

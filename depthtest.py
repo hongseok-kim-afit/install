@@ -109,3 +109,15 @@ try:
 	
 finally:
   pipe.stop()
+
+
+
+
+    cv2.namedWindow('depth camera', cv2.WINDOW_AUTOSIZE)
+    cv2.imshow('depth camera', d435_res)
+    cv2.namedWindow('Depth', cv2.WINDOW_AUTOSIZE)
+    cv2.imshow('Depth', colorized_depth)
+    cv2.namedWindow('mask', cv2.WINDOW_AUTOSIZE)
+    cv2.imshow('mask', mask)
+    #print(depth)
+    cv2.waitKey(1)
