@@ -3,6 +3,7 @@
 ## License: Apache 2.0. See LICENSE file in root directory.
 ## Copyright(c) 2019 Intel Corporation. All Rights Reserved.
 from __future__ import print_function
+#import show_both_cam
 
 """
 This example shows how to fuse wheel odometry measurements (in the form of 3D translational velocity measurements) on the T265 tracking camera to use them together with the (internal) visual and intertial measurements.
@@ -46,13 +47,13 @@ if(tm2):
 
     pipe.start(cfg)
     try:
-        for _ in range(100):
+        for _ in range(300):
             frames = pipe.wait_for_frames()
             pose = frames.get_pose_frame()
             if pose:
                 data = pose.get_pose_data()
                 #print("Frame #{}".format(pose.frame_number))
-                #print("Position: {}".format(data.translation))
+                print("Position: {}".format(data.translation))
 
                 # provide wheel odometry as vecocity measurement
                 wo_sensor_id = 0  # indexed from 0, match to order in calibration file
@@ -60,6 +61,7 @@ if(tm2):
                 v = rs.vector()
                 v.x = 0.1  # m/s
                 wheel_odometer.send_wheel_odometry(wo_sensor_id, frame_num, v)
+                
     
     finally:
         pipe.stop()

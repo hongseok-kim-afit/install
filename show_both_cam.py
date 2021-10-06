@@ -21,6 +21,8 @@ import time
 from pymavlink.dialects.v20 import common as mavlink2
 
 
+#####################################################
+## camera functions
 """
 In this section, we will set up the functions that will translate the camera
 intrinsics and extrinsics from librealsense into parameters that can be used
@@ -83,33 +85,10 @@ def callback(frame):
         frame_data["timestamp_ms"] = ts
         frame_mutex.release()
 
-################################################
-t=time.gmtime()
-date = date.today()
-current_time = time.strftime("%H:%M:%S", t)
-
-#os.mkdir("~/Desktop/Logfiles/SENG550_Group2_test_"+str(date)+str(t))
-
-print("Script Start: ", current_time)
-
-##Window Size setup
-screen = Display(':0').screen()                                        #???
-
-#Variables to initialize:
-i = 0
-ii = 0
-imageNum = 0
-camera_initialize = 0
-dist_aruco = 0
-velocity_old = 0
-#User inputs for control and tuning:
-set_speed = 1
-command_rate = 1
-target_orientation = 'horizontal'  #comment one out
-center_dist_bound = 50 #100 #last tested #pixels from center, defines x-y position tolerance
-distance_bound = 0.2 #meters from target, defines distance tolerance
-desired_distance = 0.5 #distance from desired target in meters
-
+##############################################
+# camera setting
+###############################################
+## D435i setting
 '''
 in this section we will set up for depth camera D435i
 https://www.intelrealsense.com/depth-camera-d435i/
@@ -135,19 +114,20 @@ profile = pipe.start(config)
 
 frameset = pipe.wait_for_frames()
 color_frame = frameset.get_color_frame()
-color_init = np.asanyarray(color_frame.get_data())
-
+color_init = np.asanyarray(color_frame.get_data())        
 font                   = cv2.FONT_HERSHEY_SIMPLEX
 bottomLeftCornerOfText = (10,500)
 fontScale              = 1
 fontColor              = (255,255,255)
 lineType               = 2
 
+###################################
+## T265 setting
 '''
 in this section we will set up for tracking camera T265
 https://www.intelrealsense.com/tracking-camera-t265/
 camera info
-Two Fisheye lenses with combined 163±5° FOV 
+Two Fisheye l                enses with combined 163±5° FOV 
 USB 2.0 and USB 3.1 supported for either pure pose data or a combination of pose and images.
 https://intelrealsense.github.io/librealsense/python_docs/_generated/pyrealsense2.config.html#pyrealsense2.config.enable_device
 '''
@@ -157,65 +137,34 @@ pipe2 = rs.pipeline()
 config2 = rs.config()
 config2.enable_device('119622110606') # T265 camera 119622110606
 
-# #to get the position information
-# pipe3 = rs.pipeline()
-# config3 = rs.config()
-# config3.enable_device('119622110606') # T265 camera 119622110606
-# profile3 = config3.resolve(pipe3)
-# dev3 = profile3.get_device
-# # tm2_3 = dev3.as_tm2()
-# # if(tm2_3):
-
-
-
-#Request position data
-#config2.enable_stream(rs.stream.pose)
-
 # Start streaming with requested config
 profile2 = pipe2.start(config2, callback)
+
+
+
 # pipe3.start(config3)
 
-
-'''in this section we will make Atom board talk to Pixahwak
-site: https://www.ardusub.com/developers/pymavlink.html#run-pymavlink-on-the-companion-computer
-
-'''
-
-#connecting to autopilot
-master = mavutil.mavlink_connection("/dev/ttyUSB0", baud=57600) # baud?
-master.wait_heartbeat()
-'''
-#connecting to sitl
-master = mavutil.mavlink_connection('127.0.0.1:14550')
-master.wait_heartbeat()
-print('connected to sitl')
-'''
-
-
-#initializing mode variable as GUIDED. Needed to not throw aruco detection exception
-mode = 'GUIDED'  
+#######################################3
+# set the variables
+set_speed = 1300 #throttle min = 991, max = 2015
+center_dist_bound = 50 #100 #last tested #pixels from center, defines x-y position tolerance
+desired_distance = 1.0 #distance from desired target in meters
+distance_bound = 0.5 #meters from target, defines distance tolerance
+left_turn=1300
+right_turn=1800                                   
 
 '''
-#change mode command 
-#Note: as this may may lock out RC mode change, it will only be used for ground testing
-mode_id = master.mode_mapping()[mode]
-master.mav.set_mode_send(
-    master.target_system,
-    mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-    mode_id)
+#######################################3
+# test for set_rc_channel_pwm
+# https://www.ardusub.com/developers/pymavlink.html
+# channel 1 = left turn 991, neu = 1453, right turn =1965
+#         2 = transmission, max = 2015,neu=1499
+#         3 = throttle min = 991, max = 2015
 
 
-
-#arm throttle command (not needed if already flying)
-master.mav.command_long_send(
-    master.target_system,
-    master.target_component,
-    mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
-    0,
-    1, 0, 0, 0, 0, 0, 0)
 '''
-
-
+#####################################
+# camera show
 try:
 
     ###########################################
@@ -250,10 +199,6 @@ try:
                "right" : profiles.get_stream(rs.stream.fisheye, 2).as_video_stream_profile()}
     intrinsics = {"left"  : streams["left"].get_intrinsics(),
                   "right" : streams["right"].get_intrinsics()}
-
-    # Print information about both cameras
-    print("Left camera:",  intrinsics["left"])
-    print("Right camera:", intrinsics["right"])
 
     # Translate the intrinsics from librealsense into OpenCV
     K_left  = camera_matrix(intrinsics["left"])
@@ -322,6 +267,8 @@ try:
                          "right" : (rm1, rm2)}
 
     mode_t265 = "stack"
+
+
     while True:
         ##################################################
         ########## depth camera
@@ -335,14 +282,23 @@ try:
         res = color.copy()
         hsv = cv2.cvtColor(color, cv2.COLOR_BGR2HSV)
         
-        ########################################
-        ######## connect to ardupilot        
-        #mode = 'GUIDED'
-        master.mav.request_data_stream_send(master.target_system, master.target_component,mavutil.mavlink.MAV_DATA_STREAM_ALL,1,1)
-        msg = master.recv_match(type = "HEARTBEAT", blocking = False)
-        if msg:
-            mode = mavutil.mode_string_v10(msg)    
-        print(mode)
+        '''
+        ##try
+        # Wait for the next set of frames from the camera
+        pose = pipe2.get_pose_frame()
+        # Fetch pose frame
+        #pose = frames2.get_pose_frame()
+        if pose:
+        # Print some of the pose data to the terminal
+            data = pose.get_pose_data()
+            print("Frame #{}".format(pose.frame_number))
+            print("Position: {}".format(data.translation)) # data.translation.x = position of x 
+            print(data.translation.x)
+            print("Velocity: {}".format(data.velocity)) # data.velocity.x = velocity of x
+            print(data.velocity.x)
+            print("Acceleration: {}\n".format(data.acceleration)) # data.acceleration.x = acceleration of x
+        '''
+        
         
         #mode check for command loop
         #if True: #for the test without mode
@@ -433,15 +389,8 @@ try:
             #yaw_depth2 = depth[frame_center[0]+100, frame_center[1]]
             target_center = [Cx,Cy] 
             target_depth = dist
-            print(target_center, ':target center')
-            print(target_depth, ':target depth')
-              
-        #setting a faster movement speed while target is farther away from center        
-        movement_speed = set_speed
-        if abs(target_center[0] - frame_center[0]) > 225:
-            movement_speed=movement_speed*3
-        elif abs(target_center[1] - frame_center[1]) > 225:
-            movement_speed=movement_speed*3
+
+
 
 
         ###############################################3
@@ -515,34 +464,7 @@ try:
             break
         
     
-        if mode == 'GUIDED':
-                                   
-            if target_center[0] < frame_center[0]-center_dist_bound:
-                print('frame move left')
-                velocity_y = -1*movement_speed
-            elif target_center[0] > frame_center[0]+center_dist_bound:
-                print('frame move right')
-                velocity_y = 1*movement_speed
-            else:
-                velocity_y = 0
-            
-            if target_center[1] < frame_center[1]-center_dist_bound:
-                print('frame move up')
-                velocity_z = -1*movement_speed
-            elif target_center[1] > frame_center[1]+center_dist_bound:
-                print('frame move down')
-                velocity_z = 1*movement_speed
-            else:
-                velocity_z = 0
-                    
-            if target_depth > desired_distance+distance_bound:
-                #print('frame move toward target')
-                velocity_x = 1*movement_speed
-            elif target_depth < desired_distance-distance_bound:
-                #print('frame move away from target')
-                velocity_x = -1*movement_speed
-            else:
-                velocity_x = 0
+        
             '''                
             #need to test yaw_rate signs    
             if yaw_depth1 > yaw_depth2:
@@ -556,118 +478,18 @@ try:
 finally:
     pipe.stop()
     pipe2.stop()
-'''
-
-    #setting a faster movement speed while target is farther away from center        
-movement_speed = set_speed
-if abs(target_center[0] - frame_center[0]) > 225:
-    movement_speed=movement_speed*3
-elif abs(target_center[1] - frame_center[1]) > 225:
-    movement_speed=movement_speed*3
-      #print(movement_speed)
-      #calculating target distance from center        
-      #target_dist = [np.cos(abs(target_center[0] - frame_center[0])/frame_center[0]*fov[0])*target_depth,np.cos(abs(target_center[1] - frame_center[1])/frame_center[1]*fov[1])*target_depth]
-      #print(np.cos(np.deg2rad(abs(target_center[0] - frame_center[0])/frame_center[0]*fov[0])))
-      #print(target_dist)
-
-      #mode check for command loop
-    if mode == 'GUIDED':
-    #movement algorithm
-        if target_orientation == 'vertical':
-                                  
-            if target_center[0] < frame_center[0]-center_dist_bound:
-                #print('frame move left')
-                velocity_y = -1*movement_speed
-            elif target_center[0] > frame_center[0]+center_dist_bound:
-                #print('frame move right')
-                velocity_y = 1*movement_speed
-            else:
-                velocity_y = 0
-            
-            if target_center[1] < frame_center[1]-center_dist_bound:
-                #print('frame move up')
-                velocity_z = -1*movement_speed
-            elif target_center[1] > frame_center[1]+center_dist_bound:
-                #print('frame move down')
-                velocity_z = 1*movement_speed
-            else:
-                velocity_z = 0
-                      
-            if target_depth > desired_distance+distance_bound:
-                #print('frame move toward target')
-                velocity_x = 1*movement_speed
-            elif target_depth < desired_distance-distance_bound:
-                #print('frame move away from target')
-                velocity_x = -1*movement_speed
-            else:
-                velocity_x = 0
-                
-            #need to test yaw_rate signs    
-            if yaw_depth1 > yaw_depth2:
-                yaw_rate = 1
-            elif yaw_depth1 < yaw_depth2:
-                yaw_rate = -1
-            else:
-                yaw_rate = 0
-    else:
-        print('orientation undefined')
-        velocity_x = 0
-        velocity_y = 0
-        velocity_z = 0
-        #bitmasks https://ardupilot.org/dev/docs/copter-commands-in-guided-mode.html
-        #Use Position : 0b110111111000 / 0x0DF8 / 3576 (decimal)
-        #Use Velocity : 0b110111000111 / 0x0DC7 / 3527 (decimal)
-        #Use Pos+Vel  : 0b110111000000 / 0x0DC0 / 3520 (decimal)
-        #supposedly all 0b0000000000000000
-       
+#####################################
+# main code
+##################################
 t=time.gmtime()
+date = date.today()
 current_time = time.strftime("%H:%M:%S", t)
-print(velocity_x,velocity_y,velocity_z,':commanded velocity x,y,z',current_time)
-if target_orientation =='vertical':
-        print(yaw_rate)        
-msg1 = master.mav.set_position_target_local_ned_encode(0, master.target_system, master.target_component, mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED, 3527, 0, 0, 0, velocity_x, velocity_y, velocity_z, 0 ,0, 0, 0, yaw_rate)
-master.mav.send(msg1)
-        
-i = i + 1
-if i == 10:
-    msg_pos = master.recv_match(type = "LOCAL_POSITION_NED", blocking = True)
-    msg2 = master.recv_match(type = "VFR_HUD", blocking = True)
-    t=time.gmtime()
-    current_time = time.strftime("%H:%M:%S", t)
-    print("Timestamp: ", current_time)
-    print(msg2)
-    print("")
-    print(msg_pos)
-    print("")
-    i = 0
-        
-        #time.sleep(command_rate)
-        #print(i)
-        #print('command sent')
-      
-else:
-    i = i + 1
-if i == 10:  
-            t=time.gmtime()
-            current_time = time.strftime("%H:%M:%S", t)
-            print("No ArUCo detected",current_time)
-            i = 0
-    
-cv2.putText(aruco_res, str(time.strftime("%H:%M:%S", t)),(1150, 20),cv2.FONT_HERSHEY_SIMPLEX,0.5, (255, 255, 255), 4)
-cv2.namedWindow('ArUCo', cv2.WINDOW_NORMAL)
-cv2.imshow('ArUCo',aruco_res)
-cv2.namedWindow('FPV', cv2.WINDOW_NORMAL)
-#    cv2.imshow('FPV',aruco_res2)
-    
-ii = ii+1
-if ii < 20000:
-    cv2.imwrite("flight_image"+str(ii)+".jpg",aruco_res)
+
+#os.mkdir("~/Desktop/Logfiles/SENG550_Group2_test_"+str(date)+str(t))
+
+print("Script Start: ", current_time)
+## set up the duration and update rate
+DURATION = 3 # how many times do you want?
+rate_u = 1 # put the update Hz
 
 
-    
-
-
-
-
-
-'''      

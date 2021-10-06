@@ -44,7 +44,7 @@ def send_ned_velocity(velocity_x, velocity_y, velocity_z):
     """
     msg = master.mav.set_position_target_local_ned_encode(
         0,       # time_boot_ms (not used)
-        0, 0,    # target system, target component # 
+        master.target_system, master.target_component,    # target system, target component # 
         mavutil.mavlink.MAV_FRAME_LOCAL_NED, # frame
         0b0000111111000111, # type_mask (only speeds enabled)
         0, 0, 0, # x, y, z positions (not used)
@@ -58,7 +58,7 @@ def send_ned_velocity(velocity_x, velocity_y, velocity_z):
 def change_mode_vel(ch_x,ch_y,ch_z):
     '''
     '''
-    buttons = 1 + 1 << 3 + 1 << 7
+    #buttons = 1 + 1 << 3 + 1 << 7
     ch_x=int(ch_x)
     ch_y=int(ch_y)
     ch_z=int(ch_z)
@@ -68,7 +68,7 @@ def change_mode_vel(ch_x,ch_y,ch_z):
         ch_y,# x,y and r will be between [-1000 and 1000]
         ch_z, # 500 means neutral throttle
         0,
-        buttons)
+        0)
     return(msg)
 
 def condition_yaw(heading, yaw_rate, cw, relative=False):
@@ -84,7 +84,7 @@ def condition_yaw(heading, yaw_rate, cw, relative=False):
         is_relative=0 #yaw is an absolute angle
     # create the CONDITION_YAW command using command_long_encode()
     msg = master.mav.command_long_encode(
-        0, 0,    # target system, target component
+        master.target_system, master.target_component,    # target system, target component # 
         mavutil.mavlink.MAV_CMD_CONDITION_YAW, #command
         0, #confirmation
         heading,    # param 1, yaw in degrees
@@ -95,50 +95,78 @@ def condition_yaw(heading, yaw_rate, cw, relative=False):
     return(msg)
     
 def simple_goto(self, location, airspeed=None, groundspeed=None):
-        '''
-        Go to a specified global location (:py:class:`LocationGlobal` or :py:class:`LocationGlobalRelative`).
-        There is no mechanism for notification when the target location is reached, and if another command arrives
-        before that point that will be executed immediately.
-        You can optionally set the desired airspeed or groundspeed (this is identical to setting
-        :py:attr:`airspeed` or :py:attr:`groundspeed`). The vehicle will determine what speed to
-        use if the values are not set or if they are both set.
-        The method will change the :py:class:`VehicleMode` to ``GUIDED`` if necessary.
-        .. code:: python
-            # Set mode to guided - this is optional as the simple_goto method will change the mode if needed.
-            vehicle.mode = VehicleMode("GUIDED")
-            # Set the LocationGlobal to head towards
-            a_location = LocationGlobal(-34.364114, 149.166022, 30)
-            vehicle.simple_goto(a_location)
-        :param location: The target location (:py:class:`LocationGlobal` or :py:class:`LocationGlobalRelative`).
-        :param airspeed: Target airspeed in m/s (optional).
-        :param groundspeed: Target groundspeed in m/s (optional).
-        '''
-        if isinstance(location, LocationGlobalRelative):
-            frame = mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT
-            alt = location.alt
-        elif isinstance(location, LocationGlobal):
-            # This should be the proper code:
-            # frame = mavutil.mavlink.MAV_FRAME_GLOBAL
-            # However, APM discards information about the relative frame
-            # and treats any alt value as relative. So we compensate here.
-            frame = mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT
-            if not self.home_location:
-                self.commands.download()
-                self.commands.wait_ready()
-            alt = location.alt - self.home_location.alt
-        else:
-            raise ValueError('Expecting location to be LocationGlobal or LocationGlobalRelative.')
+    '''
+    Go to a specified global location (:py:class:`LocationGlobal` or :py:class:`LocationGlobalRelative`).
+    There is no mechanism for notification when the target location is reached, and if another command arrives
+    before that point that will be executed immediately.
+    You can optionally set the desired airspeed or groundspeed (this is identical to setting
+    :py:attr:`airspeed` or :py:attr:`groundspeed`). The vehicle will determine what speed to
+    use if the values are not set or if they are both set.
+    The method will change the :py:class:`VehicleMode` to ``GUIDED`` if necessary.
+    .. code:: python
+        # Set mode to guided - this is optional as the simple_goto method will change the mode if needed.
+        vehicle.mode = VehicleMode("GUIDED")
+        # Set the LocationGlobal to head towards
+        a_location = LocationGlobal(-34.364114, 149.166022, 30)
+        vehicle.simple_goto(a_location)
+    :param location: The target location (:py:class:`LocationGlobal` or :py:class:`LocationGlobalRelative`).
+    :param airspeed: Target airspeed in m/s (optional).
+    :param groundspeed: Target groundspeed in m/s (optional).
+    '''
+    if isinstance(location, LocationGlobalRelative):
+        frame = mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT
+        alt = location.alt
+    elif isinstance(location, LocationGlobal):
+        # This should be the proper code:
+        # frame = mavutil.mavlink.MAV_FRAME_GLOBAL
+        # However, APM discards information about the relative frame
+        # and treats any alt value as relative. So we compensate here.
+        frame = mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT
+        if not self.home_location:
+            self.commands.download()
+            self.commands.wait_ready()
+        alt = location.alt - self.home_location.alt
+    else:
+        raise ValueError('Expecting location to be LocationGlobal or LocationGlobalRelative.')
 
-        self.mav.mission_item_send(0, 0, 0, frame,
-                                           mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 2, 0, 0,
-                                           0, 0, 0, location.lat, location.lon,
-                                           alt)
+    self.mav.mission_item_send(0, 0, 0, frame,
+                                        mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 2, 0, 0,
+                                        0, 0, 0, location.lat, location.lon,
+                                        alt)
 
-        if airspeed is not None:
-            self.airspeed = airspeed
-        if groundspeed is not None:
-            self.groundspeed = groundspeed
-    
+    if airspeed is not None:
+        self.airspeed = airspeed
+    if groundspeed is not None:
+        self.groundspeed = groundspeed
+###########################################3
+
+# Create a function to send RC values
+# More information about Joystick channels
+# here: https://www.ardusub.com/operators-manual/rc-input-and-output.html#rc-inputs
+def set_rc_channel_pwm(channel_id, pwm=1500):
+    """ Set RC channel pwm value
+    Args:
+        channel_id (TYPE): Channel ID
+        pwm (int, optional): Channel pwm value 1100-1900
+    """
+    if channel_id < 1 or channel_id > 18:
+        print("Channel does not exist.")
+        return
+
+    # Mavlink 2 supports up to 18 channels:
+    # https://mavlink.io/en/messages/common.html#RC_CHANNELS_OVERRIDE
+    rc_channel_values = [65535 for _ in range(8)]
+    rc_channel_values[channel_id - 1] = pwm
+    '''
+    print("pwm",type(pwm))
+    print("rc",type(rc_channel_values))
+    print("compo",type(master.target_component))
+    print("system",type(master.target_system))
+    '''
+    master.mav.rc_channels_override_send(
+        master.target_system,                # target_system
+        master.target_component,             # target_component
+        *rc_channel_values)                  # RC channel list, in microseconds.
 
 #####################################
 ## main code
@@ -163,12 +191,12 @@ rate_u = 1 # put the update Hz
 v_x= 3.0
 v_y= 0.0  
 v_z =0
-msg = send_ned_velocity(v_x,v_y,v_z)
+#msg = send_ned_velocity(v_x,v_y,v_z)
 
 
 ###################################
 ### test for 'change_mode_vel' function
-### feat manual_control
+### feat manual_control  Result = go straight
 '''
 ## instruction
 master.mav.manual_control_send(
@@ -206,24 +234,58 @@ a_location = LocationGlobalRelative(-34.364114, 149.166022, 30)
 
 #simple_goto(master,a_location)
 
+#########################################3
+### test for 'set_rc_channel_pwn
+'''
+https://www.ardusub.com/developers/pymavlink.html
+channel 1 = transmission, max = 2015,neu=1499
+        2 = left turn 991, neu = 1453, right turn =1965
+        3 = throttle min = 991, max = 2015
+'''
+# Set transmission
+set_rc_channel_pwm(1, 2015)
 
+# Set some turn
+set_rc_channel_pwm(2, 2000)
+
+# Set some throttle
+set_rc_channel_pwm(3, 1100)
+'''
+#########################################3
+### read all parameter
+
+# Request all parameters
+master.mav.param_request_list_send(
+    master.target_system, master.target_component
+)
+while True:
+    time.sleep(0.01)
+    try:
+        message = master.recv_match(type='PARAM_VALUE', blocking=True).to_dict()
+        print('name: %s\tvalue: %d' % (message['param_id'],
+                                       message['param_value']))
+    except Exception as error:
+        print(error)
+        sys.exit(0)
+'''
 ##########################################
 # send command to vehicle on rate
 for x in range(0,DURATION):    
     master.mav.send(msg)
-    
+    ##############################
+    ## MODE CHECK
+    msg2 = master.recv_match(type = "HEARTBEAT", blocking = False)
+    if msg2:   
+        mode = mavutil.mode_string_v10(msg2)    
+    print(mode)
+    #####################
+
     time.sleep(rate_u)
     
 
-'''
-###################################
-    ## mode check
-    master.mav.request_data_stream_send(master.target_system, master.target_component,mavutil.mavlink.MAV_DATA_STREAM_ALL,1,1)
-        msg2 = master.recv_match(type = "HEARTBEAT", blocking = False)
-        if msg2:
-            mode = mavutil.mode_string_v10(msg2)    
-        print(mode)
-'''
+
+
+
 
 '''
 # Request parameter
