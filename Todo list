@@ -5,3 +5,15 @@ https://ardupilot.org/rover/docs/common-loading-firmware-onto-pixhawk.html
 https://pysource.com/2021/06/24/identify-and-measure-precisely-objects-distance-with-deep-learning-and-intel-realsense/
 
 https://medium.com/@iKhushPatel/convert-video-to-images-images-to-video-using-opencv-python-db27a128a481
+
+Depth filter
+https://github.com/IntelRealSense/librealsense/blob/jupyter/notebooks/depth_filters.ipynb
+color change
+https://github.com/michael-ab/Tracking_Depth_ball_RealSenseL515/blob/master/realsense_tracking_ball.py
+
+mount
+https://dev.intelrealsense.com/docs/depth-and-tracking-cameras-alignment
+
+EXTRINSIC
+https://github.com/IntelRealSense/librealsense/blob/development/examples/tracking-and-depth/H_t265_d400.cfg
+
