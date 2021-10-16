@@ -17,3 +17,6 @@ https://dev.intelrealsense.com/docs/depth-and-tracking-cameras-alignment
 EXTRINSIC
 https://github.com/IntelRealSense/librealsense/blob/development/examples/tracking-and-depth/H_t265_d400.cfg
 
+realsense parameters
+https://intelrealsense.github.io/librealsense/python_docs/_generated/pyrealsense2.html#module-pyrealsense2
+
