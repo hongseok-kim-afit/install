@@ -20,8 +20,35 @@ https://github.com/IntelRealSense/librealsense/blob/development/examples/trackin
 realsense parameters
 https://intelrealsense.github.io/librealsense/python_docs/_generated/pyrealsense2.html#module-pyrealsense2
 
-    fill with blue
+
+
+def plot_1d_est_with_cov(est, covs, truth=None, xs=None, sigmas=3):
+    '''
+    This function takes in (n,) numpy arrays and plots the estimate with
+    "error bars" around the estimate.  Can also plot the truth.  The estimate
+    will be red, the 
+    
+    Args:
+        est:  The estimate values over time. An (n,) array
+        covs:  The covariance over time.  An (n,) array
+        truth:  (optional)  The true values over time.  An (n,) array
+        xs: (optional) If nothing passed in, will plot 1->n on the x axis.
+            Otherwise, will put xs along the x axis
+        sigmas:  (default=3) How many sigmas out to put the "error bars"
+            when plotting
+    Returns:  nothing. Just plots stuff using matplotlib
+    '''
+    assert len(est)==len(covs), 'est and covs must be the same length'
+    if truth is not None:
+        assert len(est)==len(truth), 'est and truth must be the same length'
+    if xs is not None:
+        assert len(est)==len(xs), 'est and xs must be the same length'    
+    else:
+        xs = np.arange(len(est))
     plt.plot(xs,est,c='r', label='estimate')
     top_vals = est + np.sqrt(covs)*sigmas
     low_vals = est - np.sqrt(covs)*sigmas
     plt.fill_between(xs,low_vals,top_vals, facecolor='b',alpha=.5)
+    if truth is not None:
+        plt.plot(xs,truth,c='k',linestyle='--',label='truth')
+        plt.legend()
