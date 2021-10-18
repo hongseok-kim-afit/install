@@ -20,3 +20,8 @@ https://github.com/IntelRealSense/librealsense/blob/development/examples/trackin
 realsense parameters
 https://intelrealsense.github.io/librealsense/python_docs/_generated/pyrealsense2.html#module-pyrealsense2
 
+    fill with blue
+    plt.plot(xs,est,c='r', label='estimate')
+    top_vals = est + np.sqrt(covs)*sigmas
+    low_vals = est - np.sqrt(covs)*sigmas
+    plt.fill_between(xs,low_vals,top_vals, facecolor='b',alpha=.5)
