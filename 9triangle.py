@@ -32,7 +32,7 @@ set_speed = 1225 #throttle min = 991, max = 2015, but 1100 does not move
 # Object avoidance variables
 depth_pixel = [640, 480] # height = 480(y), width(x)=640
 head_offset = depth_pixel[1] / 2 # depth_pixel[1] / 2= 320
-desired_distance = 1.5 #distance from desired action for object avoidance in meters
+desired_distance = 2.0 #distance from desired action for object avoidance in meters
 distance_bound = 0.2 # pad for avoidance
 distance_limit = 0.3 #meters from target, set the minimum approach distance
 noaction_distance = 0.5 # sometimes depth camera catch the ground so ignore
@@ -59,21 +59,21 @@ result_data = []
 
 #################
 #set the stpt for route
-abb = 3
-# # triangle
-# goal1=[-1,0,1.732]
-# goal2=[1,0,1.732]
-# goal3=[1,0,0]
-# goal4=[0,0,0]
-# goal = [goal1,goal2,goal4,goal1,goal2,goal4] # z=forward, x=right
-
-# box
-bba=1
-goal1=[0,0,abb]
-goal2=[bba,0,abb]
-goal3=[bba,0,0]
+abb = 1.5
+# triangle
+goal1=[-1*abb,0,1.732*abb]
+goal2=[1*abb,0,1.732*abb]
+goal3=[1*abb,0,0]
 goal4=[0,0,0]
-goal = [goal1,goal2,goal3,goal4, goal1, goal2, goal3, goal4] # z=forward, x=right
+goal = [goal1,goal2,goal4,goal1,goal2,goal4] # z=forward, x=right
+
+# # box
+# bba=1
+# goal1=[0,0,abb]
+# goal2=[bba,0,abb]
+# goal3=[bba,0,0]
+# goal4=[0,0,0]
+# goal = [goal1,goal2,goal3,goal4, goal1, goal2, goal3, goal4] # z=forward, x=right
 
 # # line
 # goal1=[0,0,abb]
@@ -211,6 +211,42 @@ def depth_to_tracking (pixel_location, depth, pose_data, width):
     return float(position_current[0]), float(position_current[1]), float(-position_current[2])
 
 ##############################################
+def change_coordinate(pose_data):  # not use
+    """
+    change to magnatic coordistance_bound, world frame
+    ## get the heading from the t265 and aligned to the north
+    # heading is vehicle.heading
+    #print("heading: {}\n".format(vehicle.heading)) # degree 0~360
+    # result is we genernate new coordination with vehicle.heading = 360
+    # https://github.com/IntelRealSense/librealsense/blob/master/wrappers/python/examples/t265_rpy.py
+    """
+    w = pose_data.rotation.w
+    x = -pose_data.rotation.z
+    y = pose_data.rotation.x
+    z = -pose_data.rotation.y
+    yaw   =  m.atan2(2.0 * (w*z + x*y), w*w + x*x - y*y - z*z)
+    # yaw -180~0(left)0~180(right) for change to 0~360
+    if yaw <= 0.:
+        yaw = yaw + 2*m.pi
+    #print('yaw',yaw*180/m.pi)
+    mag_heading = vehicle.heading/180*m.pi
+    
+    #print('heading',mag_heading*180/m.pi)
+    delta_theta = - yaw
+    #delta_theta = mag_heading - yaw # align to vehicle heading
+    #print('delta_theta',delta_theta)
+
+    # roatate axes and get the new coordinate
+    rotation_z = np.array([[m.cos(delta_theta), -m.sin(delta_theta), 0],
+                            [m.sin(delta_theta), m.cos(delta_theta), 0],
+                            [0, 0, 1]])
+    pose=np.array([x,y,z]).T
+    #print(pose)
+    rotation_pose = rotation_z.dot(pose)
+    #print(rotation_pose)
+    return rotation_pose
+
+##############################################
 def relative_position (pose_data, goal):
     '''
     current_position: WGS84 or Cartesian corrdinates (1.1 = 1.1m)
@@ -260,7 +296,7 @@ def relative_position (pose_data, goal):
     else:
         angle = m.atan2(del_x, del_z) # get the -pi ~ pi
 
-        # theta change to 0~360
+        # theta change to 0~360[i
         if angle <= 0:
             angle = angle + 2*m.pi
 
@@ -292,8 +328,7 @@ def object_avoid(difference, target_depth, width, pose_data):
 
         elif head_offset + pixel_bound < difference < width/2:
             print('avoid_point_left')
-            relative_move (pose_data, avoid_right)
-            
+            relative_move (pose_data, pose_avoid)
     else: # target located center or right
         if 0< -difference < head_offset:
             print('turn_left')
@@ -306,7 +341,7 @@ def object_avoid(difference, target_depth, width, pose_data):
 
         elif head_offset + pixel_bound < -difference < width/2:
             print('avoid_point_right')
-            relative_move (pose_data, avoid_left)
+            relative_move (pose_data, pose_avoid)
 
 '''
     if located == 'right':
@@ -343,7 +378,9 @@ def relative_move (pose_data, goal):
     # for make turn_angle 0~360
     if turn_angle <=0:
         turn_angle = turn_angle + 2*m.pi
-
+    #print('turn_angle', turn_angle*180/m.pi)
+    
+    #print('rel_distance',rel_distance)
     if rel_distance > goal_dist:
         if turn_angle == 0:
             set_rc_channel_pwm(neutral, set_speed)
@@ -974,109 +1011,16 @@ try:
         #Get depth data array
         depth = np.asanyarray(aligned_depth_frame.get_data())
         #print(depth)
-        #Depth array is transposed when pulled
+        #Depth array is transposed when pulled, found by Charlie and Jacob                   #???
         depth = np.transpose(depth)
-        
+        depth_scale = profile.get_device().first_depth_sensor().get_depth_scale()
+        depth_dis = depth * depth_scale
+        #print(depth_dis)x_o
+
         i = i+1 
-        for contour in c:
-            if cv2.contourArea(contour) < 1500:
-                continue
-            #(Cx,Cy), radius = cv2.minEnclosingCircle(contour) # draw circle
-            (x, y, w, h) = cv2.boundingRect(contour)  # draw box
-            bottomLeftCornerOfText = (x, y)
 
-            # get the target center
-            #Cx = (x + w) / 2.0
-            #Cy = (y + h) / 2.0
             
-            #center = (int(Cx), int(Cy))
-            #radius = int(radius)
-            # Crop depth data:
-            depth = depth[x:x+w, y:y+h].astype(float)
-            
-            depth_crop = depth.copy()
-
-            if depth_crop.size == 0:
-                continue
-            #print(depth_crop)
-            depth_res = depth_crop[depth_crop != 0]
-            #print(depth_res)
-            # Get data scale from the device and convert to meters
-            depth_scale = profile.get_device().first_depth_sensor().get_depth_scale()
-            depth_res = depth_res * depth_scale
-            #print('depth_res',depth_res)
-            if depth_res.size == 0:
-                continue
-
-            dist = min(depth_res)
-            #print(dist)
-
-            #cv2.circle(depth_data, center, radius,(0,255,0),2) # draw target circle
-            cv2.rectangle(depth_data, (x, y), (x + w, y + h), (0, 255, 0), 3) # draw target rectangle 
-            text = "Depth: " + str("{0:.2f}").format(dist)
-            cv2.putText(depth_data,
-                        text,
-                        bottomLeftCornerOfText,
-                        font,
-                        fontScale,
-                        fontColor,
-                        lineType)
-            # put Text left top
-            cv2.putText(depth_data,text, [80, 30], font, fontScale, fontColor, lineType)
-            
-            #initializing autopilot control variables
-            frame_center = (width/2,height/2)
-            desired_pixel = frame_center
-            target_center = [x,y] 
-            target_depth = dist
-            target_left_edge = [x - w/2., y]
-            target_right_edge = [x + w/2., y]
-            #print('right_target_de',target_right_edge)
-            #print('target_depth',target_depth)
-            #print('width',width)
-            avoid_right_pixel = [target_right_edge[0] + 1 / target_depth * width / 2, y]
-            #print('avoid_right_pixel',avoid_right_pixel)
-            avoid_left_pixel = [target_left_edge[0] - 1 / target_depth * width / 2, y]
-            avoid_left = depth_to_tracking(avoid_left_pixel, target_depth, pose_data, width)
-            avoid_right = depth_to_tracking(avoid_right_pixel, target_depth, pose_data, width)
-            #print(target_center, ':target center')
-            #print(target_depth, ':target depth')
-            
-            #################################################
-            ### main code
-            ## vehicle movement algorithm
-            ####################################################################
-            # test for depth_to_tracking (pixel_location, depth, pose_data, width)
-            #dx, dy, dz = depth_to_tracking (target_center, target_depth, pose_data, width)
-            #print(dx, dy, dz)
-            ## for def depth_to_tracking (pixel_location, depth, pose_data, width) test
-            
-            '''
-            ddx, ddy, ddz = depth_to_tracking (target_center, target_depth, pose_data, width)
-            print('ddx',ddx*1)
-            print('ddy',ddy)
-            print('ddz',ddz)
-            '''
-            '''
-            #################################################
-            ## just for stpt move test
-            
-            if mode == 'MANUAL':
-                #print(pose_data.translation)
-                
-                heading = vehicle.heading/180*m.pi
-                current_position = pose_data.translation
-                relative_move(pose_data, goal_stpt)
-            '''
-            '''
-            #################################################
-            ## route follow
-            if mode == 'MANUAL':
-                ii = route_move (pose_data, goal, ii)
-                current_goal = goal[ii]
-            '''
-          
-            
+        
         if mode == 'MANUAL':
         # if mode == 'HOLD':
             #print(pose_data.translation)
@@ -1134,6 +1078,114 @@ try:
 
                 else :
                     ii = route_move (pose_data, goal, ii)
+        for contour in c:
+            if cv2.contourArea(contour) < 1500:
+                continue
+            #(Cx,Cy), radius = cv2.minEnclosingCircle(contour) # draw circle
+            (x, y, w, h) = cv2.boundingRect(contour)  # draw box
+            bottomLeftCornerOfText = (x, y)
+
+            # get the target center
+            #Cx = (x + w) / 2.0
+            #Cy = (y + h) / 2.0
+            
+            #center = (int(Cx), int(Cy))
+            #radius = int(radius)
+            # Crop depth data:
+            depth = depth[x:x+w, y:y+h].astype(float)
+            
+            depth_crop = depth.copy()
+
+            if depth_crop.size == 0:
+                continue
+            #print(depth_crop)
+            depth_res = depth_crop[depth_crop != 0]
+            #print(depth_res)
+            # Get data scale from the device and convert to meters
+            depth_scale = profile.get_device().first_depth_sensor().get_depth_scale()
+            depth_res = depth_res * depth_scale
+            #print('depth_res',depth_res)
+            if depth_res.size == 0:
+                continue
+
+            dist = min(depth_res)
+            #print(dist)
+
+            #cv2.circle(depth_data, center, radius,(0,255,0),2) # draw target circle
+            cv2.rectangle(depth_data, (x, y), (x + w, y + h), (0, 255, 0), 3) # draw target rectangle 
+            text = "Depth: " + str("{0:.2f}").format(dist)
+            cv2.putText(depth_data,
+                        text,
+                        bottomLeftCornerOfText,
+                        font,
+                        fontScale,
+                        fontColor,
+                        lineType)
+            cv2.putText(depth_data,text, [80, 30], font, fontScale, fontColor, lineType)
+            
+            #initializing autopilot control variables
+            frame_center = (width/2,height/2)
+            #fov = (45,32.5)
+            desired_pixel = frame_center
+            #yaw_depth1 = depth[frame_center[0]-100, frame_center[1]]
+            #yaw_depth2 = depth[frame_center[0]+100, frame_center[1]]
+            target_center = [x,y] 
+            target_depth = dist
+            target_left_edge = [x - w/2., y]
+            target_right_edge = [x + w/2., y]
+            #print('right_target_de',target_right_edge)
+            #print('target_depth',target_depth)
+            #print('width',width)
+            avoid_right_pixel = [target_right_edge[0] + 1 / target_depth * width / 2, y]
+            #print('avoid_right_pixel',avoid_right_pixel)
+            avoid_left_pixel = [target_left_edge[0] - 1 / target_depth * width / 2, y]
+            pose_avoid = depth_to_tracking(avoid_left_pixel, target_depth, pose_data, width)
+            #left_avoid = depth_to_tracking ([0,y], target_depth, pose_data, width)
+            #right_avoid = depth_to_tracking ([width,y], target_depth, pose_data, width)
+            #print(target_center, ':target center')
+            #print(target_depth, ':target depth')
+            
+            #################################################
+            ### main code
+            ## vehicle movement algorithm
+            ####################################################################
+            # test for depth_to_tracking (pixel_location, depth, pose_data, width)
+            #dx, dy, dz = depth_to_tracking (target_center, target_depth, pose_data, width)
+            #print(dx, dy, dz)
+            ## for def depth_to_tracking (pixel_location, depth, pose_data, width) test
+            
+            '''
+            ddx, ddy, ddz = depth_to_tracking (target_center, target_depth, pose_data, width)
+            print('ddx',ddx*1)
+            print('ddy',ddy)
+            print('ddz',ddz)
+            '''
+            '''
+            #################################################
+            ## just for stpt move test
+            
+            if mode == 'MANUAL':
+                #print(pose_data.translation)
+                
+                heading = vehicle.heading/180*m.pi
+                current_position = pose_data.translation
+                relative_move(pose_data, goal_stpt)
+            '''
+            '''
+            #################################################
+            ## route follow
+            if mode == 'MANUAL':
+                ii = route_move (pose_data, goal, ii)
+                current_goal = goal[ii]
+            '''
+            ###############################################
+            # object avoid
+            # desired_distance = 0.7 #distance from desired action for object avoidance in meters
+            # distance_bound = 0.1 # pad for avoidance
+            # distance_limit = 0.3 #meters from target, set the minimum approach distance
+            # pixel_bound = 50 #100 #last tested #pixels from center, defines x-y position tolerance
+
+
             
             target_coordinate = [tx, ty, tz]
             edge_coordinate = [ox, oy, oz]
