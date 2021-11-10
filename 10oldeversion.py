@@ -59,13 +59,13 @@ result_data = []
 
 #################
 #set the stpt for route
-abb = 1.5
-# triangle
-goal1=[-1*abb,0,1.732*abb]
-goal2=[1*abb,0,1.732*abb]
-goal3=[1*abb,0,0]
-goal4=[0,0,0]
-goal = [goal1,goal2,goal4,goal1,goal2,goal4] # z=forward, x=right
+abb = 3
+# # triangle
+# goal1=[-1,0,1.732]
+# goal2=[1,0,1.732]
+# goal3=[1,0,0]
+# goal4=[0,0,0]
+# goal = [goal1,goal2,goal4,goal1,goal2,goal4] # z=forward, x=right
 
 # # box
 # bba=1
@@ -75,20 +75,21 @@ goal = [goal1,goal2,goal4,goal1,goal2,goal4] # z=forward, x=right
 # goal4=[0,0,0]
 # goal = [goal1,goal2,goal3,goal4, goal1, goal2, goal3, goal4] # z=forward, x=right
 
-# # line
-# goal1=[0,0,abb]
-# goal2=[0,0,0]
-# goal = [goal1,goal2,goal1,goal2,goal1,goal2] # z=forward, x=right
+# straight stop
+goal1=[0,0,abb]
+goal2=[0,0,0]
+goal = [goal1] # z=forward, x=right
 
 goal_stpt = goal1
 current_goal = goal[ii]
 tx, ty, tz, ox, oy, oz=0, 0, 0, 0, 0, 0
 target_coordinate = [0,0,0]
 edge_coordinate = [0,0,0]
+avoid_clear= [0,0,0]
 #########################################3
 ### connecting to autopilot
 ## connect to pixahwak with mavlink
-master = mavutil.mavlink_connection("/dev/ttyUSB0", baud=57600)
+master = mavutil.mavlink_connection("/dev/ttyUSB0", baud=57600) 
 master.wait_heartbeat()
 
 ## connect to pixahwak with dronkit
@@ -109,7 +110,7 @@ def set_rc_channel_pwm(turn, throttle):
     Args:
         channel_id (TYPE): Channel ID
         pwm (int, optional): Channel pwm value 1100-1900
-                rc_channel_values = [turn, transmission, throttle, 0, 1000, 0, 0, 0]
+        rc_channel_values = [turn, transmission, throttle, 0, 1000, 0, 0, 0]
     """
     # Mavlink 2 supports up to 8 channels:
     # https://mavlink.io/en/messages/common.html#RC_CHANNELS_OVERRIDE
@@ -272,7 +273,7 @@ def relative_position (pose_data, goal):
 def object_avoid(difference, target_depth, width, pose_data):
     '''
     difference = frame_center[0] - target_center[0]
-        turn direction form the picture frame
+    turn direction form the picture frame
     |Quick left|left       |right             |/center/|left              |right      |quick_right| # turn direction
     |width/2   |pixel_bound|offset|pixel_bound|/center/|pixel_bound|offset|pixel_bound|width/2    |  # if difference is
 
@@ -290,7 +291,7 @@ def object_avoid(difference, target_depth, width, pose_data):
 
         elif head_offset + pixel_bound < difference:
             print('avoid_point_left')
-            relative_move (pose_data, avoid_right)
+            relative_move (pose_data, avoid_clear)
             
     else: # target located center or right
         if 0 < -difference <= head_offset - pixel_bound:
@@ -304,7 +305,7 @@ def object_avoid(difference, target_depth, width, pose_data):
 
         elif head_offset + pixel_bound < -difference:
             print('avoid_point_right')
-            relative_move (pose_data, avoid_left)    
+            relative_move (pose_data, avoid_clear)    
 
 def relative_move (pose_data, goal):
     """
@@ -413,7 +414,7 @@ def route_move (pose_data, goal, ii):
 
     else:
         set_rc_channel_pwm(neutral, stop_speed)
-
+        
         # when reached the goal change to next goal
         if ii != home:
             ii=ii+1
@@ -800,11 +801,11 @@ try:
         # Skip 5 first frames to give the Auto-Exposure time to adjust
         for x in range(5):
             pipe.wait_for_frames()
-
+        
         # print frame number
         print(iii)
 
-        # for vehicle activated mode print        
+        # for vehicle activated mode print
         mode = vehicle.mode
         print(mode)
         
@@ -961,7 +962,7 @@ try:
         #print(depth)
         #Depth array is transposed when pulled
         depth = np.transpose(depth)
-
+        
         i = i+1 
         for contour in c:
             if cv2.contourArea(contour) < 1500:
@@ -1007,7 +1008,6 @@ try:
             #             fontColor,
             #             lineType)
             # put Text left top
-
             cv2.putText(depth_data,text, [80, 30], font, fontScale, fontColor, lineType)
             
             #initializing autopilot control variables
@@ -1020,9 +1020,12 @@ try:
             #print('right_target_de',target_right_edge)
             #print('target_depth',target_depth)
             #print('width',width)
+
+            # pixel, the 1m out of the target edge 
             avoid_right_pixel = [target_right_edge[0] + 1 / target_depth * width / 2, y]
             avoid_left_pixel = [target_left_edge[0] - 1 / target_depth * width / 2, y]
-
+            
+            # coordinate, the 1m out of the target edge 
             avoid_left = depth_to_tracking(avoid_left_pixel, target_depth, pose_data, width)
             avoid_right = depth_to_tracking(avoid_right_pixel, target_depth, pose_data, width)
             #print(target_center, ':target center')
@@ -1061,8 +1064,8 @@ try:
                 ii = route_move (pose_data, goal, ii)
                 current_goal = goal[ii]
             '''
-
-                  
+          
+            
         if mode == 'MANUAL':
         # if mode == 'HOLD':
             #print(pose_data.translation)
@@ -1074,7 +1077,7 @@ try:
                 pose_avoid = avoid_left
                 
             else:
-                object_edge = target_right_edge
+                object_edge = target_right_edge               
                 pose_avoid = avoid_right
 
             difference = frame_center[0] - object_edge[0]
@@ -1087,7 +1090,7 @@ try:
             # eliminate out of x 
             if ox > max(pose_data.translation.x, current_goal[0]) + noaction_distance or tx <  min(pose_data.translation.x, current_goal[0]) - noaction_distance:
                 ii = route_move (pose_data, goal, ii)
-                
+
                 print('target x coordinate',tx,ty,tz)
                 print('max', max(pose_data.translation.x, current_goal[0]) + noaction_distance)
                 print('min', min(pose_data.translation.x, current_goal[0]) - noaction_distance)
@@ -1106,20 +1109,22 @@ try:
                 [ox, oy, oz] = [0, 0, 0]
             # object avoidance
             else :
-                if noaction_distance < target_depth < 3.0:
+                if target_depth < 3.0:
                     print('in range')
                     ii = route_move (pose_data, goal, ii)
 
-                    if target_depth < desired_distance + distance_bound:
+                    if noaction_distance < target_depth < desired_distance + distance_bound:
                         ox, oy, oz = depth_to_tracking (object_edge, target_depth, pose_data, width)
                         tx, ty, tz = depth_to_tracking (target_center, target_depth, pose_data, width)
+                        avoid_clear = pose_avoid 
                         object_avoid(difference, target_depth, width, pose_data)
+                        
                         print('avoid','target_center',target_center,'object_edge', object_edge,'depth' ,target_depth,'position' ,pose_data.translation,'width', width)
                         print('target_codination',[tx,ty,tz])
                     else:
                         if tx != 0:
-                            pose_avoid = depth_to_tracking(avoid_left_pixel, target_depth, pose_data, width)
-                            relative_move (pose_data, pose_avoid)
+                            relative_move (pose_data, avoid_clear)
+                        ii = route_move (pose_data, goal, ii)
 
                 else :
                     ii = route_move (pose_data, goal, ii)

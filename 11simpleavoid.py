@@ -31,7 +31,7 @@ from pymavlink.dialects.v20 import common as mavlink2
 set_speed = 1225 #throttle min = 991, max = 2015, but 1100 does not move
 # Object avoidance variables
 depth_pixel = [640, 480] # width(x)=640, height(y) = 480
-head_offset = depth_pixel[1] / 2 # depth_pixel[1] / 2= 320
+head_offset = depth_pixel[0] / 2 # depth_pixel[0] / 2= 320
 desired_distance = 1.5 #distance from desired action for object avoidance in meters
 distance_bound = 0.2 # pad for avoidance
 distance_limit = 0.3 #meters for goal stop distance
@@ -56,16 +56,16 @@ i = 0
 position = []
 target_depth = []
 result_data = []
-
+# coordi_avoid, coordi_edge, coordi_center, pixal_center, pixal_edge,
 #################
 #set the stpt for route
-abb = 1.5
-# triangle
-goal1=[-1*abb,0,1.732*abb]
-goal2=[1*abb,0,1.732*abb]
-goal3=[1*abb,0,0]
-goal4=[0,0,0]
-goal = [goal1,goal2,goal4,goal1,goal2,goal4] # z=forward, x=right
+abb = 3
+# # triangle
+# goal1=[-1,0,1.732]
+# goal2=[1,0,1.732]
+# goal3=[1,0,0]
+# goal4=[0,0,0]
+# goal = [goal1,goal2,goal4,goal1,goal2,goal4] # z=forward, x=right
 
 # # box
 # bba=1
@@ -75,20 +75,22 @@ goal = [goal1,goal2,goal4,goal1,goal2,goal4] # z=forward, x=right
 # goal4=[0,0,0]
 # goal = [goal1,goal2,goal3,goal4, goal1, goal2, goal3, goal4] # z=forward, x=right
 
-# # line
-# goal1=[0,0,abb]
-# goal2=[0,0,0]
-# goal = [goal1,goal2,goal1,goal2,goal1,goal2] # z=forward, x=right
+# straight stop
+goal1=[0,0,abb]
+goal2=[0,0,0]
+goal = [goal1] # z=forward, x=right
 
 goal_stpt = goal1
 current_goal = goal[ii]
 tx, ty, tz, ox, oy, oz=0, 0, 0, 0, 0, 0
 target_coordinate = [0,0,0]
 edge_coordinate = [0,0,0]
+avoid_clear= [0,0,0]
+coordi_avoid = [0,0,0]
 #########################################3
 ### connecting to autopilot
 ## connect to pixahwak with mavlink
-master = mavutil.mavlink_connection("/dev/ttyUSB0", baud=57600)
+master = mavutil.mavlink_connection("/dev/ttyUSB0", baud=57600) 
 master.wait_heartbeat()
 
 ## connect to pixahwak with dronkit
@@ -109,7 +111,7 @@ def set_rc_channel_pwm(turn, throttle):
     Args:
         channel_id (TYPE): Channel ID
         pwm (int, optional): Channel pwm value 1100-1900
-                rc_channel_values = [turn, transmission, throttle, 0, 1000, 0, 0, 0]
+        rc_channel_values = [turn, transmission, throttle, 0, 1000, 0, 0, 0]
     """
     # Mavlink 2 supports up to 8 channels:
     # https://mavlink.io/en/messages/common.html#RC_CHANNELS_OVERRIDE
@@ -266,45 +268,115 @@ def relative_position (pose_data, goal):
             angle = angle + 2*m.pi
 
     return angle, distance, yaw
-
+def check_inroute(pose_data, current_goal, point):
+    # eliminate out of x 
+    if point[0] > max(pose_data.translation.x, current_goal[0]) + noaction_distance or tx <  min(pose_data.translation.x, current_goal[0]) - noaction_distance:
+        #ii = route_move (pose_data, goal, ii)
+        
+        print('elim x')
+        return 'out_route'
+        #[tx, ty, tz] = [0, 0, 0]
+        #[ox, oy, oz] = [0, 0, 0]
+    # eliminate out of z
+    elif point[2] > max(-pose_data.translation.z, current_goal[2]) + noaction_distance or tz <  min(-pose_data.translation.z, current_goal[2]):
+        #ii = route_move (pose_data, goal, ii)
+        return 'out_route'
+        print('elim z')
+        # [tx, ty, tz] = [0, 0, 0]
+        # [ox, oy, oz] = [0, 0, 0]
 ###########################################3
 ## movement function 
-def object_avoid(difference, target_depth, width, pose_data):
+def object_avoid(pixel_edge, pixel_center, target_depth, width, pose_data):
     '''
-    difference = frame_center[0] - target_center[0]
-        turn direction form the picture frame
+    turn direction form the picture frame
     |Quick left|left       |right             |/center/|left              |right      |quick_right| # turn direction
     |width/2   |pixel_bound|offset|pixel_bound|/center/|pixel_bound|offset|pixel_bound|width/2    |  # if difference is
-
+    head_offset = width / 2 = 320 
+    pixel_bound = 50 
     '''
+    difference_edge = frame_center[0] - pixel_edge[0]
+    difference_center = frame_center[0] - pixel_center[0]
+    
+    if difference_center * difference_edge > 0: # locate same side(target_edge and target center)
+        difference = difference_edge
+        turn_rate =  turn_max - turn_min
+    else: # pixel_center and edge located other
+        difference = difference_center
+        turn_rate = turn_max
+
     if difference > 0: # target located left
-        if 0 < difference <= head_offset - pixel_bound:
-            #print('difference',difference,'head_offset',head_offset)
+        if 0 < difference <= head_offset - pixel_bound: # 0< <270
+            print('difference',difference,'head_offset',head_offset)
             print('turn_right')
-            set_rc_channel_pwm(neutral + turn_max - turn_min,set_speed)
+            set_rc_channel_pwm(neutral + turn_rate,set_speed)
             located = 'left'
         
         elif head_offset - pixel_bound < difference <= head_offset + pixel_bound:
+            print('difference',difference,'head_offset',head_offset)
             print('left_reverse1')
             set_rc_channel_pwm(turn_left,set_speed) # left_turn reverse
 
         elif head_offset + pixel_bound < difference:
+            print('difference',difference,'head_offset',head_offset)
             print('avoid_point_left')
-            relative_move (pose_data, avoid_right)
+            relative_avoid(pose_data, avoid_clear, goal, ii)
             
     else: # target located center or right
         if 0 < -difference <= head_offset - pixel_bound:
+            print('difference',difference,'head_offset',head_offset)
             print('turn_left')
             located = 'right'
-            set_rc_channel_pwm(neutral - turn_max + turn_min,set_speed)
+            set_rc_channel_pwm(neutral - turn_rate,set_speed)
         
         elif head_offset - pixel_bound < -difference <= head_offset + pixel_bound:
+            print('difference',difference,'head_offset',head_offset)
             print('right_reverse1')
             set_rc_channel_pwm(turn_right,set_speed) # right_turn reverse
 
         elif head_offset + pixel_bound < -difference:
+            print('difference',difference,'head_offset',head_offset)
             print('avoid_point_right')
-            relative_move (pose_data, avoid_left)    
+            relative_avoid(pose_data, avoid_clear, goal, ii)
+
+def relative_avoid(pose_data, avoid_point, goal, ii):
+    rel_angle, rel_distance, yaw = relative_position(pose_data, avoid_point)
+    turn_angle = rel_angle - yaw
+
+    if avoid_point[2] >= 0:
+        if avoid_point[2] >= pose_data.translation.z:   
+            print('point>position') 
+            if turn_angle == 0:
+                print('positive_avoid_neu') 
+                set_rc_channel_pwm(neutral, set_speed)
+            elif 0< turn_angle <=m.pi:
+                print('positive_avoid_med') 
+                turn = neutral + smooth_turn(turn_angle) 
+                set_rc_channel_pwm(turn, set_speed)
+            else:
+                print('positive_avoid_max') 
+                turn = neutral - smooth_turn(turn_angle) 
+                set_rc_channel_pwm(turn, set_speed)
+        else:
+            print('positive_route_go')
+            ii = route_move (pose_data, goal, ii)
+    else:
+        if avoid_point[2] <= pose_data.translation.z:    
+            if turn_angle == 0:
+                print('negative_avoid_neu')
+                set_rc_channel_pwm(neutral, set_speed)
+            elif 0< turn_angle <=m.pi:
+                print('negative_avoid_med')
+                turn = neutral + smooth_turn(turn_angle) 
+                set_rc_channel_pwm(turn, set_speed)
+            else:
+                print('negative_avoid_max')
+                turn = neutral - smooth_turn(turn_angle) 
+                set_rc_channel_pwm(turn, set_speed)
+        else:
+            print('negative_route_go')
+            ii = route_move (pose_data, goal, ii)
+
+
 
 def relative_move (pose_data, goal):
     """
@@ -321,7 +393,6 @@ def relative_move (pose_data, goal):
     print('vehicle go to : ',goal)
     rel_angle, rel_distance, yaw = relative_position(pose_data, goal)
     turn_angle = rel_angle - yaw
-    #print('rel_angle',rel_angle*180/m.pi)
     # for make turn_angle 0~360
     if turn_angle <=0:
         turn_angle = turn_angle + 2*m.pi
@@ -413,7 +484,7 @@ def route_move (pose_data, goal, ii):
 
     else:
         set_rc_channel_pwm(neutral, stop_speed)
-
+        
         # when reached the goal change to next goal
         if ii != home:
             ii=ii+1
@@ -443,7 +514,48 @@ def smooth_turn (rel_angle):
         #print('min')
         return (turn_min)
 
+def simple_object_avoid(pixel_edge, pixel_center, pose_data, current_goal, avoid_clear):
+    '''
+    turn direction form the picture frame
+    |Quick left|left       |right             |/center/|left              |right      |quick_right| # turn direction
+    |width/2   |pixel_bound|offset|pixel_bound|/center/|pixel_bound|offset|pixel_bound|width/2    |  # if difference is
+    head_offset = width / 2 = 320 
+    pixel_bound = 50 
+    '''
+    
+    difference_edge = frame_center[0] - pixel_edge[0]
+    difference_center = frame_center[0] - pixel_center[0]
+    
+    if difference_center * difference_edge > 0: # locate same side(target_edge and target center)
+        difference = difference_edge
+        turn_rate =  turn_max
+    else: # pixel_center and edge located other
+        difference = difference_center
+        turn_rate = turn_max
 
+    if difference > 0: # target located left
+        if 0 < difference <= head_offset - pixel_bound: 
+            print('difference',difference,'head_offset',head_offset)
+            print('turn_right')
+            set_rc_channel_pwm(neutral + turn_rate,set_speed)
+            if check_inroute(pose_data, current_goal, avoid_clear) != 'out_route':
+                print('avoid_right')
+                print('avoid_edge coordi',avoid_clear)
+                relative_avoid(pose_data, avoid_clear, goal, ii)
+            
+    else: # target located center or right
+        if 0 < -difference <= head_offset - pixel_bound:
+            print('difference',difference,'head_offset',head_offset)
+            print('turn_left')
+            located = 'right'
+            set_rc_channel_pwm(neutral - turn_rate,set_speed)
+            if check_inroute(pose_data, current_goal, avoid_clear) != 'out_route':
+                print('avoid_left')
+                print('avoid_edge coordi',avoid_clear)
+
+                relative_avoid(pose_data, avoid_clear, goal, ii)
+        
+        
 ###########################################
 ### camera setting
 ###############################################
@@ -463,7 +575,7 @@ in this section we will set up for depth camera D435i
 https://www.intelrealsense.com/depth-camera-d435i/
 camera info
 Depth output resolution: Up to 1280 × 720
-Depth Field of View (FOV): 87° × 58° 
+Depth Field of View (FOV): 87° × 58°    
 Depth frame rate: Up to 90 fps
 RGB frame resolution: 1920 × 1080 
 RGB sensor FOV (H × V): 69° × 42°
@@ -481,7 +593,7 @@ config.enable_device('040322073813') #D435i s/n 040322073813
 ####point cloud setting
 pipeline_wrapper = rs.pipeline_wrapper(pipe)
 pipeline_profile = config.resolve(pipeline_wrapper)
-device = pipeline_profile.get_device()
+device = pipeline_profile.get_device()            
 
 found_rgb = False
 for s in device.sensors:
@@ -800,11 +912,11 @@ try:
         # Skip 5 first frames to give the Auto-Exposure time to adjust
         for x in range(5):
             pipe.wait_for_frames()
-
+        
         # print frame number
         print(iii)
 
-        # for vehicle activated mode print        
+        # for vehicle activated mode print
         mode = vehicle.mode
         print(mode)
         
@@ -843,8 +955,8 @@ try:
         disparity_to_depth = rs.disparity_transform(False)
 
         #filter processing
-        filtered_depth = decimation.process(depth_frame)
-        filtered_depth = depth_to_disparity.process(filtered_depth)
+        #filtered_depth = decimation.process(depth_frame)
+        filtered_depth = depth_to_disparity.process(depth_frame)
         filtered_depth = spatial.process(filtered_depth)
         filtered_depth = temporal.process(filtered_depth)
         filtered_depth = disparity_to_depth.process(filtered_depth)
@@ -930,14 +1042,14 @@ try:
         
         colorizer = rs.colorizer()
         colorized_depth = np.asanyarray(colorizer.colorize(filtered_depth).get_data())
-
+    
         # Create alignment primitive with color as its target stream:
         align = rs.align(rs.stream.color)
         frameset = align.process(frameset)
 
         # Update color and depth frames:
-        aligned_depth_frame = frameset.get_depth_frame()
-        colorized_depth = np.asanyarray(colorizer.colorize(aligned_depth_frame).get_data())
+        #aligned_depth_frame = frameset.get_depth_frame()
+        # colorized_depth = np.asanyarray(colorizer.colorize(aligned_depth_frame).get_data())
         
         ### motion detector
         d = cv2.absdiff(color_init, color) # get the difference with previous depth_image
@@ -955,13 +1067,25 @@ try:
         (c, _) = cv2.findContours(dilated, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         # cv2.drawContours(color, c, -1, (0, 255, 0), 2)
         color_init = color
-
+        #######################################################################
         #Get depth data array
-        depth = np.asanyarray(aligned_depth_frame.get_data())
+        #depth = np.asanyarray(aligned_depth_frame.get_data())
+        #depth1 = np.transpose(depth)
+        
+        #print('depth',depth1[320,:])
+        depth = np.asanyarray(filtered_depth.get_data())
+        #depth = np.asanyarray(aligned_depth_frame.get_data())
+
+        depth = np.transpose(depth)
+        
+        #print('depth',depth[320,:])
+        #print('center',depth1[320,240])
+
+        #print('center',depth[320,240])
+        #print('delta',depth1-depth)
         #print(depth)
         #Depth array is transposed when pulled
-        depth = np.transpose(depth)
-
+        ##############################################################
         i = i+1 
         for contour in c:
             if cv2.contourArea(contour) < 1500:
@@ -984,7 +1108,7 @@ try:
             if depth_crop.size == 0:
                 continue
             #print(depth_crop)
-            depth_res = depth_crop[depth_crop != 0]
+            depth_res = depth_crop[depth_crop != 0] #catch value when the depth_crop is not 0
             #print(depth_res)
             # Get data scale from the device and convert to meters
             depth_scale = profile.get_device().first_depth_sensor().get_depth_scale()
@@ -992,40 +1116,42 @@ try:
             #print('depth_res',depth_res)
             if depth_res.size == 0:
                 continue
-
-            dist = min(depth_res)
+            
+            dist = min(depth_res[depth_res!=0])
             #print(dist)
 
             #cv2.circle(depth_data, center, radius,(0,255,0),2) # draw target circle
             cv2.rectangle(depth_data, (x, y), (x + w, y + h), (0, 255, 0), 3) # draw target rectangle 
             text = "Depth: " + str("{0:.2f}").format(dist)
-            # cv2.putText(depth_data,
-            #             text,
-            #             bottomLeftCornerOfText,
-            #             font,
-            #             fontScale,
-            #             fontColor,
-            #             lineType)
-            # put Text left top
-
+            cv2.putText(depth_data,
+                        text,
+                        bottomLeftCornerOfText,
+                        font,
+                        fontScale,
+                        fontColor,
+                        lineType)
+            ## put Text left top
             cv2.putText(depth_data,text, [80, 30], font, fontScale, fontColor, lineType)
             
             #initializing autopilot control variables
             frame_center = (width/2,height/2)
             desired_pixel = frame_center
-            target_center = [x,y] 
+            pixel_center = [x,y] 
             target_depth = dist
-            target_left_edge = [x - w/2., y]
-            target_right_edge = [x + w/2., y]
-            #print('right_target_de',target_right_edge)
+            pixel_left = [x - w/2., y]
+            pixel_right = [x + w/2., y]
+            #print('right_target_de',pixel_right)
             #print('target_depth',target_depth)
             #print('width',width)
-            avoid_right_pixel = [target_right_edge[0] + 1 / target_depth * width / 2, y]
-            avoid_left_pixel = [target_left_edge[0] - 1 / target_depth * width / 2, y]
 
-            avoid_left = depth_to_tracking(avoid_left_pixel, target_depth, pose_data, width)
-            avoid_right = depth_to_tracking(avoid_right_pixel, target_depth, pose_data, width)
-            #print(target_center, ':target center')
+            # pixel, the 1m out of the target edge 
+            pixel_avoid_right = [pixel_right[0] + 1 / target_depth * width / 2, y]
+            pixel_avoid_left = [pixel_left[0] - 1 / target_depth * width / 2, y]
+            
+            # coordinate, the 1m out of the target edge 
+            coordi_avoid_left = depth_to_tracking(pixel_avoid_left, target_depth, pose_data, width)
+            coordi_avoid_right = depth_to_tracking(pixel_avoid_right, target_depth, pose_data, width)
+            #print(pixel_center, ':target center')
             #print(target_depth, ':target depth')
             
             #################################################
@@ -1033,12 +1159,12 @@ try:
             ## vehicle movement algorithm
             ####################################################################
             # test for depth_to_tracking (pixel_location, depth, pose_data, width)
-            #dx, dy, dz = depth_to_tracking (target_center, target_depth, pose_data, width)
+            #dx, dy, dz = depth_to_tracking (pixel_center, target_depth, pose_data, width)
             #print(dx, dy, dz)
             ## for def depth_to_tracking (pixel_location, depth, pose_data, width) test
             
             '''
-            ddx, ddy, ddz = depth_to_tracking (target_center, target_depth, pose_data, width)
+            ddx, ddy, ddz = depth_to_tracking (pixel_center, target_depth, pose_data, width)
             print('ddx',ddx*1)
             print('ddy',ddy)
             print('ddz',ddz)
@@ -1061,68 +1187,83 @@ try:
                 ii = route_move (pose_data, goal, ii)
                 current_goal = goal[ii]
             '''
-
-                  
+        ###########################################
+        ###########coordi_avoid is wrong x have to change###################################################################################
+        ##################################
+            
         if mode == 'MANUAL':
         # if mode == 'HOLD':
             #print(pose_data.translation)
             # goal = [0,0,3] # z is forward
             current_goal = goal[ii]
             #print('current_goal',current_goal)
-            if target_center[0] > frame_center[0]:
-                object_edge = target_left_edge
-                pose_avoid = avoid_left
+            if pixel_center[0] > frame_center[0]:
+                pixel_edge = pixel_left
+                coordi_avoid = coordi_avoid_left
                 
             else:
-                object_edge = target_right_edge
-                pose_avoid = avoid_right
+                pixel_edge = pixel_right               
+                coordi_avoid = coordi_avoid_right
 
-            difference = frame_center[0] - object_edge[0]
+            
             
             # get the target coordinate
-            tx, ty, tz = depth_to_tracking (target_center, target_depth, pose_data, width)
-            ox, oy, oz = depth_to_tracking (object_edge, target_depth, pose_data, width)
+            tx, ty, tz = depth_to_tracking (pixel_center, target_depth, pose_data, width)
+            ox, oy, oz = depth_to_tracking (pixel_edge, target_depth, pose_data, width)
             #print('object',[tx, ty, tz])
 
-            # eliminate out of x 
-            if ox > max(pose_data.translation.x, current_goal[0]) + noaction_distance or tx <  min(pose_data.translation.x, current_goal[0]) - noaction_distance:
-                ii = route_move (pose_data, goal, ii)
-                
-                print('target x coordinate',tx,ty,tz)
-                print('max', max(pose_data.translation.x, current_goal[0]) + noaction_distance)
-                print('min', min(pose_data.translation.x, current_goal[0]) - noaction_distance)
-                print('elim x')
-                [tx, ty, tz] = [0, 0, 0]
-                [ox, oy, oz] = [0, 0, 0]
-            # eliminate out of z
-            elif oz > max(-pose_data.translation.z, current_goal[2]) + noaction_distance or tz <  min(-pose_data.translation.z, current_goal[2]):
-                ii = route_move (pose_data, goal, ii)
-                
-                print('target z coordinate',tx,tz,ty)
-                print('max', max(-pose_data.translation.z, current_goal[2])+ noaction_distance)
-                print('min', min(-pose_data.translation.z, current_goal[2]))
-                print('elim z')
+            if check_inroute(pose_data, current_goal, [ox,oy,oz])=='out_route':
+                print('current_position',pose_data.translation.x, pose_data.translation.y, pose_data.translation.z)
+                print('target coordinate',tx,ty,tz)
+
+                # check for stored target coordinate
+                if avoid_clear[0] !=0 and check_inroute(pose_data, current_goal, avoid_clear) != 'out_route':
+                    print('relative_avoid')
+                    relative_avoid(pose_data, avoid_clear, goal, ii)
+                else:
+                    print('route_move')
+                    ii = route_move (pose_data, goal, ii)
                 [tx, ty, tz] = [0, 0, 0]
                 [ox, oy, oz] = [0, 0, 0]
             # object avoidance
             else :
-                if noaction_distance < target_depth < 3.0:
+                if target_depth < 3.0:
                     print('in range')
-                    ii = route_move (pose_data, goal, ii)
+                    
+                    # check for stored target coordinate
+                    if avoid_clear[0] !=0 and check_inroute(pose_data, current_goal, avoid_clear) != 'out_route':
+                        print('out1')
+                        print('coordi_avoid', coordi_avoid)
+                        relative_avoid(pose_data, avoid_clear, goal, ii)
+                    else:
+                        ii = route_move (pose_data, goal, ii)
 
-                    if target_depth < desired_distance + distance_bound:
-                        ox, oy, oz = depth_to_tracking (object_edge, target_depth, pose_data, width)
-                        tx, ty, tz = depth_to_tracking (target_center, target_depth, pose_data, width)
-                        object_avoid(difference, target_depth, width, pose_data)
-                        print('avoid','target_center',target_center,'object_edge', object_edge,'depth' ,target_depth,'position' ,pose_data.translation,'width', width)
+                    if noaction_distance < target_depth < desired_distance + distance_bound:
+                        ox, oy, oz = depth_to_tracking (pixel_edge, target_depth, pose_data, width)
+                        tx, ty, tz = depth_to_tracking (pixel_center, target_depth, pose_data, width)
+                        avoid_clear = coordi_avoid 
+
+                        simple_object_avoid(pixel_edge, pixel_center, pose_data, current_goal, avoid_clear)
+                        
+                        print('avoid','pixel_center',pixel_center,'pixel_edge', pixel_edge,'depth' ,target_depth,'position' ,pose_data.translation,'width', width)
                         print('target_codination',[tx,ty,tz])
                     else:
-                        if tx != 0:
-                            pose_avoid = depth_to_tracking(avoid_left_pixel, target_depth, pose_data, width)
-                            relative_move (pose_data, pose_avoid)
+                        # check for stored target coordinate
+                        if avoid_clear[0] !=0 and check_inroute(pose_data, current_goal, avoid_clear) != 'out_route':
+                            print('out2')
+                            print('coordi_avoid', avoid_clear)
+                            relative_avoid(pose_data, avoid_clear, goal, ii)
+                        else:
+                            ii = route_move (pose_data, goal, ii)
 
                 else :
-                    ii = route_move (pose_data, goal, ii)
+                    # check for stored target coordinate
+                    if avoid_clear[0] !=0 and check_inroute(pose_data, current_goal, avoid_clear) != 'out_route':
+                        print('out3')
+                        print('coordi_avoid', avoid_clear)
+                        relative_avoid(pose_data, avoid_clear, goal, ii)
+                    else:
+                        ii = route_move (pose_data, goal, ii)
             
             target_coordinate = [tx, ty, tz]
             edge_coordinate = [ox, oy, oz]
